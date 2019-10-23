@@ -72,7 +72,8 @@ public class valueHouse extends Value {
         if ((other==null) || !(other instanceof valueHouse)){
             return false;
         }
-        return house.equals((valueHouse)other);
+        valueHouse v= (valueHouse) other;
+        return house.equals(v.house);
     }
 
     @Override
