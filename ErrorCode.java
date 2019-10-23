@@ -2079,12 +2079,14 @@ public class ErrorCode {
     public static final int METHOD_DISABLED_ON_AUTOCOMMIT_TRUE = 90147;
 
 
-    // next is 90148
+
     /**
      * The error with code <code>90147</code> is thrown when trying to execute a
      * statement which doesn't has a valid type of house.
      */
     public static final int INVALID_HOUSE_ERROR = 90148;
+
+    // next is 90149
 
     private ErrorCode() {
         // utility class
