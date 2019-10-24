@@ -93,12 +93,14 @@ public class valueHouse extends Value {
             return this;
         }
         switch (targetType) {
-            case Value.BYTES:
-            case Value.JAVA_OBJECT: {
+            case Value.BYTES: {
                 return ValueBytes.getNoCopy(JdbcUtils.serialize(house, null));
             }
             case Value.STRING: {
                 return ValueString.get(house.toString());
+            }
+            case Value.JAVA_OBJECT: {
+                return ValueJavaObject.getNoCopy(JdbcUtils.serialize(house, null));
             }
         }
         throw DbException.get(
