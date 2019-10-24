@@ -80,6 +80,6 @@ public class valueHouse extends Value {
     public int compareTypeSafe(Value o, CompareMode mode, CastDataProvider provider) {
         valueHouse vHouse = (valueHouse) o.getObject();
         return mode.compareString(this.house.toString(),vHouse.house.toString()
-                ,false);
+                ,true);
     }
 }
