@@ -1,11 +1,10 @@
 package org.h2.value;
 
 import org.h2.api.ErrorCode;
-import org.h2.engine.CastDataProvider;
 import org.h2.message.DbException;
 import org.h2.util.JdbcUtils;
 import org.h2.util.StringUtils;
-
+import org.h2.engine.Mode;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Types;
@@ -79,16 +78,14 @@ public class valueHouse extends Value {
     }
 
     @Override
-    public int compareTypeSafe(Value o, CompareMode mode, CastDataProvider provider) {
+    public int compareTypeSafe(Value o, CompareMode mode) {
         valueHouse vHouse = (valueHouse) o.getObject();
         return mode.compareString(this.house.toString(),vHouse.house.toString()
                 ,true);
     }
 
     @Override
-    public Value convertTo(int targetType, ExtTypeInfo extTypeInfo,
-                      CastDataProvider provider,
-                     boolean forComparison, Object column) {
+    public Value convertTo(int targetType, Mode mode, Object column, ExtTypeInfo extTypeInfo) {
         if (Value.HOUSE == targetType) {
             return this;
         }

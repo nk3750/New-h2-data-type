@@ -46,14 +46,20 @@ public class CustomHouseDataType implements CustomDataTypesHandler {
     }
     @Override
     public Value convert(Value source, int targetType) {
+        //System.out.println(source+Integer.toString(targetType));
+        //System.out.println(source.getType().toString()+Integer.toString(targetType));
+        System.out.println(source.getType().getValueType()+Integer.toString(targetType));
         if (source.getType() == TypeInfo.getTypeInfo(targetType)){
             return source;
         }
        else if (targetType == Value.HOUSE){
+            System.out.println("coming inside");
             if (source.getType() == TypeInfo.TYPE_JAVA_OBJECT){
                 return valueHouse.get((House) JdbcUtils.deserialize(source.getBytesNoCopy(), null));
             }
-            else if(source.getType() == TypeInfo.TYPE_STRING){
+            else if(source.getType().getValueType() == 13){
+
+                System.out.println("coming inside string");
                 String h = source.getSQL();
                 try {
                     Value housevalue = valueHouse.get(new House(h));

@@ -1,6 +1,6 @@
 /*
  * Copyright 2004-2019 H2 Group. Multiple-Licensed under the MPL 2.0,
- * and the EPL 1.0 (https://h2database.com/html/license.html).
+ * and the EPL 1.0 (http://h2database.com/html/license.html).
  * Initial Developer: H2 Group
  */
 package org.h2.value;
@@ -20,7 +20,7 @@ import java.sql.Time;
 import java.sql.Timestamp;
 import org.h2.api.ErrorCode;
 import org.h2.api.IntervalQualifier;
-import org.h2.engine.CastDataProvider;
+import org.h2.engine.Mode;
 import org.h2.engine.SysProperties;
 import org.h2.message.DbException;
 import org.h2.result.ResultInterface;
@@ -31,7 +31,6 @@ import org.h2.util.DateTimeUtils;
 import org.h2.util.IntervalUtils;
 import org.h2.util.JdbcUtils;
 import org.h2.util.StringUtils;
-import org.h2.util.geometry.GeoJsonUtils;
 
 /**
  * This is the base class for all value classes.
@@ -246,18 +245,8 @@ public abstract class Value extends VersionedValue {
      * The value type for ROW values.
      */
     public static final int ROW = 39;
-
-    /**
-     * The value type for JSON values.
-     */
-    public static final int JSON = 40;
-
-    /**
-     * The value type for HOUSE values.
-     */
-
-    public static final int HOUSE = 41;
-
+    
+    public static final int HOUSE = 40;
     /**
      * The number of value types.
      */
@@ -453,17 +442,14 @@ public abstract class Value extends VersionedValue {
             return 44_000;
         case ENUM:
             return 45_000;
-        case JSON:
-            return 46_000;
         case ARRAY:
             return 50_000;
         case ROW:
             return 51_000;
         case RESULT_SET:
             return 52_000;
-            case HOUSE:
+        case HOUSE:
                 return 53_000;
-
         default:
             if (JdbcUtils.customDataTypesHandler != null) {
                 return JdbcUtils.customDataTypesHandler.getDataTypeOrder(type);
@@ -717,7 +703,7 @@ public abstract class Value extends VersionedValue {
      * @return the converted value
      */
     public final Value convertTo(int targetType) {
-        return convertTo(targetType, null, null, false, null);
+        return convertTo(targetType, null, null, null);
     }
 
     /**
@@ -726,53 +712,45 @@ public abstract class Value extends VersionedValue {
      * @return value represented as ENUM
      */
     private Value convertToEnum(ExtTypeInfo enumerators) {
-        return convertTo(ENUM, enumerators, null, false, null);
+        return convertTo(ENUM, null, null, enumerators);
     }
 
     /**
      * Convert a value to the specified type.
      *
      * @param targetType the type of the returned value
-     * @param provider the cast information provider
-     * @param forComparison if {@code true}, perform cast for comparison operation
+     * @param mode the mode
      * @return the converted value
      */
-    public final Value convertTo(int targetType, CastDataProvider provider, boolean forComparison) {
-        return convertTo(targetType, null, provider, forComparison, null);
+    public final Value convertTo(int targetType, Mode mode) {
+        return convertTo(targetType, mode, null, null);
     }
 
     /**
      * Convert a value to the specified type.
      *
      * @param targetType the type of the returned value
-     * @param provider the cast information provider
-     * @param forComparison if {@code true}, perform cast for comparison operation
+     * @param mode the conversion mode
      * @param column the column (if any), used for to improve the error message if conversion fails
      * @return the converted value
      */
-    public final Value convertTo(TypeInfo targetType, CastDataProvider provider, boolean forComparison,
-            Object column) {
-        return convertTo(targetType.getValueType(), targetType.getExtTypeInfo(), provider, forComparison, column);
+    public final Value convertTo(TypeInfo targetType, Mode mode, Object column) {
+        return convertTo(targetType.getValueType(), mode, column, targetType.getExtTypeInfo());
     }
 
     /**
      * Convert a value to the specified type.
      *
      * @param targetType the type of the returned value
+     * @param mode the conversion mode
+     * @param column the column (if any), used for to improve the error message if conversion fails
      * @param extTypeInfo the extended data type information, or null
-     * @param provider the cast information provider
-     * @param forComparison if {@code true}, perform cast for comparison operation
-     * @param column the column (if any), used for to improve the error message if conversion fails
      * @return the converted value
      */
-    protected Value convertTo(int targetType, ExtTypeInfo extTypeInfo, CastDataProvider provider,
-            boolean forComparison, Object column) {
+    protected Value convertTo(int targetType, Mode mode, Object column, ExtTypeInfo extTypeInfo) {
         // converting NULL is done in ValueNull
         // converting BLOB to CLOB and vice versa is done in ValueLob
         if (getValueType() == targetType) {
-            if (extTypeInfo != null) {
-                return extTypeInfo.cast(this);
-            }
             return this;
         }
         try {
@@ -800,17 +778,17 @@ public abstract class Value extends VersionedValue {
             case TIME:
                 return convertToTime();
             case TIMESTAMP:
-                return convertToTimestamp(provider, forComparison);
+                return convertToTimestamp(mode);
             case TIMESTAMP_TZ:
-                return convertToTimestampTimeZone(provider, forComparison);
+                return convertToTimestampTimeZone();
             case BYTES:
-                return convertToBytes(provider);
+                return convertToBytes(mode);
             case STRING:
-                return ValueString.get(convertToString(provider));
+                return convertToString(mode);
             case STRING_IGNORECASE:
-                return ValueStringIgnoreCase.get(convertToString(provider));
+                return convertToStringIgnoreCase(mode);
             case STRING_FIXED:
-                return ValueStringFixed.get(convertToString(provider));
+                return convertToStringFixed(mode);
             case JAVA_OBJECT:
                 return convertToJavaObject();
             case ENUM:
@@ -838,8 +816,6 @@ public abstract class Value extends VersionedValue {
             case Value.INTERVAL_HOUR_TO_SECOND:
             case Value.INTERVAL_MINUTE_TO_SECOND:
                 return convertToIntervalDayTime(targetType);
-            case Value.JSON:
-                return convertToJson();
             case ARRAY:
                 return convertToArray();
             case ROW:
@@ -848,6 +824,7 @@ public abstract class Value extends VersionedValue {
                 return convertToResultSet();
             default:
                 if (JdbcUtils.customDataTypesHandler != null) {
+                    //return JdbcUtils.customDataTypesHandler.getDataTypeOrder(targetType);
                     return JdbcUtils.customDataTypesHandler.convert(this, targetType);
                 }
                 throw getDataConversionError(targetType);
@@ -1003,9 +980,21 @@ public abstract class Value extends VersionedValue {
             return ValueDecimal.get(BigDecimal.valueOf(getInt()));
         case LONG:
             return ValueDecimal.get(BigDecimal.valueOf(getLong()));
-        case DOUBLE:
-        case FLOAT:
-            return ValueDecimal.get(getBigDecimal());
+        case DOUBLE: {
+            double d = getDouble();
+            if (Double.isInfinite(d) || Double.isNaN(d)) {
+                throw DbException.get(ErrorCode.DATA_CONVERSION_ERROR_1, Double.toString(d));
+            }
+            return ValueDecimal.get(BigDecimal.valueOf(d));
+        }
+        case FLOAT: {
+            float f = getFloat();
+            if (Float.isInfinite(f) || Float.isNaN(f)) {
+                throw DbException.get(ErrorCode.DATA_CONVERSION_ERROR_1, Float.toString(f));
+            }
+            // better rounding behavior than BigDecimal.valueOf(f)
+            return ValueDecimal.get(new BigDecimal(Float.toString(f)));
+        }
         case TIMESTAMP_TZ:
             throw getDataConversionError(DECIMAL);
         }
@@ -1096,13 +1085,10 @@ public abstract class Value extends VersionedValue {
         return ValueTime.parse(getString().trim());
     }
 
-    private ValueTimestamp convertToTimestamp(CastDataProvider provider, boolean forComparison) {
+    private ValueTimestamp convertToTimestamp(Mode mode) {
         switch (getValueType()) {
         case TIME:
-            return ValueTimestamp.fromDateValueAndNanos(forComparison
-                    ? DateTimeUtils.EPOCH_DATE_VALUE
-                    : provider.currentTimestamp().getDateValue(),
-                    ((ValueTime) this).getNanos());
+            return DateTimeUtils.normalizeTimestamp(0, ((ValueTime) this).getNanos());
         case DATE:
             return ValueTimestamp.fromDateValueAndNanos(((ValueDate) this).getDateValue(), 0);
         case TIMESTAMP_TZ: {
@@ -1114,16 +1100,15 @@ public abstract class Value extends VersionedValue {
         case ENUM:
             throw getDataConversionError(TIMESTAMP);
         }
-        return ValueTimestamp.parse(getString().trim(), provider);
+        return ValueTimestamp.parse(getString().trim(), mode);
     }
 
-    private ValueTimestampTimeZone convertToTimestampTimeZone(CastDataProvider provider, boolean forComparison) {
+    private ValueTimestampTimeZone convertToTimestampTimeZone() {
         switch (getValueType()) {
-        case TIME:
-            return DateTimeUtils.timestampTimeZoneFromLocalDateValueAndNanos(forComparison
-                    ? DateTimeUtils.EPOCH_DATE_VALUE
-                    : provider.currentTimestamp().getDateValue(),
-                    ((ValueTime) this).getNanos());
+        case TIME: {
+            ValueTimestamp ts = DateTimeUtils.normalizeTimestamp(0, ((ValueTime) this).getNanos());
+            return DateTimeUtils.timestampTimeZoneFromLocalDateValueAndNanos(ts.getDateValue(), ts.getTimeNanos());
+        }
         case DATE:
             return DateTimeUtils.timestampTimeZoneFromLocalDateValueAndNanos(((ValueDate) this).getDateValue(), 0);
         case TIMESTAMP: {
@@ -1136,14 +1121,13 @@ public abstract class Value extends VersionedValue {
         return ValueTimestampTimeZone.parse(getString().trim());
     }
 
-    private ValueBytes convertToBytes(CastDataProvider provider) {
+    private ValueBytes convertToBytes(Mode mode) {
         switch (getValueType()) {
         case JAVA_OBJECT:
         case BLOB:
-        case GEOMETRY:
-        case JSON:
             return ValueBytes.getNoCopy(getBytesNoCopy());
         case UUID:
+        case GEOMETRY:
             return ValueBytes.getNoCopy(getBytes());
         case BYTE:
             return ValueBytes.getNoCopy(new byte[] { getByte() });
@@ -1166,19 +1150,42 @@ public abstract class Value extends VersionedValue {
             throw getDataConversionError(BYTES);
         }
         String s = getString();
-        return ValueBytes.getNoCopy(provider != null && provider.getMode().charToBinaryInUtf8
-                ? s.getBytes(StandardCharsets.UTF_8)
-                        : StringUtils.convertHexToBytes(s.trim()));
+        return ValueBytes.getNoCopy(mode != null && mode.charToBinaryInUtf8 ? s.getBytes(StandardCharsets.UTF_8)
+                : StringUtils.convertHexToBytes(s.trim()));
     }
 
-    private String convertToString(CastDataProvider provider) {
+    private ValueString convertToString(Mode mode) {
         String s;
-        if (getValueType() == BYTES && provider != null && provider.getMode().charToBinaryInUtf8) {
+        if (getValueType() == BYTES && mode != null && mode.charToBinaryInUtf8) {
+            // Bugfix - Can't use the locale encoding when enabling
+            // charToBinaryInUtf8 in mode.
+            // The following two target types also are the same issue.
+            // @since 2018-07-19 little-pan
             s = new String(getBytesNoCopy(), StandardCharsets.UTF_8);
         } else {
             s = getString();
         }
-        return s;
+        return (ValueString) ValueString.get(s);
+    }
+
+    private ValueString convertToStringIgnoreCase(Mode mode) {
+        String s;
+        if (getValueType() == BYTES && mode != null && mode.charToBinaryInUtf8) {
+            s = new String(getBytesNoCopy(), StandardCharsets.UTF_8);
+        } else {
+            s = getString();
+        }
+        return ValueStringIgnoreCase.get(s);
+    }
+
+    private ValueString convertToStringFixed(Mode mode) {
+        String s;
+        if (getValueType() == BYTES && mode != null && mode.charToBinaryInUtf8) {
+            s = new String(getBytesNoCopy(), StandardCharsets.UTF_8);
+        } else {
+            s = getString();
+        }
+        return ValueStringFixed.get(s);
     }
 
     private ValueJavaObject convertToJavaObject() {
@@ -1186,8 +1193,6 @@ public abstract class Value extends VersionedValue {
         case BYTES:
         case BLOB:
             return ValueJavaObject.getNoCopy(null, getBytesNoCopy(), getDataHandler());
-        case GEOMETRY:
-            return ValueJavaObject.getNoCopy(getObject(), null, getDataHandler());
         case ENUM:
         case TIMESTAMP_TZ:
             throw getDataConversionError(JAVA_OBJECT);
@@ -1222,11 +1227,7 @@ public abstract class Value extends VersionedValue {
     private ValueLobDb convertToBlob() {
         switch (getValueType()) {
         case BYTES:
-        case GEOMETRY:
-        case JSON:
             return ValueLobDb.createSmallLob(Value.BLOB, getBytesNoCopy());
-        case UUID:
-            return ValueLobDb.createSmallLob(Value.BLOB, getBytes());
         case TIMESTAMP_TZ:
             throw getDataConversionError(BLOB);
         }
@@ -1268,21 +1269,6 @@ public abstract class Value extends VersionedValue {
             //$FALL-THROUGH$
         case TIMESTAMP_TZ:
             throw getDataConversionError(GEOMETRY);
-        case JSON: {
-            int srid = 0;
-            if (extTypeInfo != null) {
-                Integer s = extTypeInfo.getSrid();
-                if (s != null) {
-                    srid = s;
-                }
-            }
-            try {
-                result = ValueGeometry.get(GeoJsonUtils.geoJsonToEwkb(getBytesNoCopy(), srid));
-            } catch (RuntimeException ex) {
-                throw DbException.get(ErrorCode.DATA_CONVERSION_ERROR_1, getTraceSQL());
-            }
-            break;
-        }
         default:
             result = ValueGeometry.get(getString());
         }
@@ -1342,37 +1328,6 @@ public abstract class Value extends VersionedValue {
         throw getDataConversionError(targetType);
     }
 
-    private ValueJson convertToJson() {
-        switch (getValueType()) {
-        case BOOLEAN:
-            return ValueJson.get(getBoolean());
-        case BYTE:
-        case SHORT:
-        case INT:
-            return ValueJson.get(getInt());
-        case LONG:
-            return ValueJson.get(getLong());
-        case FLOAT:
-        case DOUBLE:
-        case DECIMAL:
-            return ValueJson.get(getBigDecimal());
-        case BYTES:
-        case BLOB:
-            return ValueJson.fromJson(getBytesNoCopy());
-        case STRING:
-        case STRING_IGNORECASE:
-        case STRING_FIXED:
-        case CLOB:
-            return ValueJson.get(getString());
-        case GEOMETRY: {
-            ValueGeometry vg = (ValueGeometry) this;
-            return ValueJson.getInternal(GeoJsonUtils.ewkbToGeoJson(vg.getBytesNoCopy(), vg.getDimensionSystem()));
-        }
-        default:
-            throw getDataConversionError(Value.JSON);
-        }
-    }
-
     private ValueArray convertToArray() {
         Value[] a;
         switch (getValueType()) {
@@ -1410,18 +1365,8 @@ public abstract class Value extends VersionedValue {
 
     private ValueResultSet convertToResultSet() {
         SimpleResult result = new SimpleResult();
-        if (getValueType() == ROW) {
-            Value[] values = ((ValueRow) this).getList();
-            for (int i = 0; i < values.length;) {
-                Value v = values[i++];
-                String columnName = "C" + i;
-                result.addColumn(columnName, columnName, v.getType());
-            }
-            result.addRow(values);
-        } else {
-            result.addColumn("X", "X", getType());
-            result.addRow(this);
-        }
+        result.addColumn("X", "X", getType());
+        result.addRow(this);
         return ValueResultSet.get(result);
     }
 
@@ -1444,23 +1389,22 @@ public abstract class Value extends VersionedValue {
      *
      * @param v the other value
      * @param mode the compare mode
-     * @param provider the cast information provider
      * @return 0 if both values are equal, -1 if the other value is smaller, and
      *         1 otherwise
      */
-    public abstract int compareTypeSafe(Value v, CompareMode mode, CastDataProvider provider);
+    public abstract int compareTypeSafe(Value v, CompareMode mode);
 
     /**
      * Compare this value against another value using the specified compare
      * mode.
      *
      * @param v the other value
-     * @param provider the cast information provider
+     * @param databaseMode the database mode
      * @param compareMode the compare mode
      * @return 0 if both values are equal, -1 if this value is smaller, and
      *         1 otherwise
      */
-    public final int compareTo(Value v, CastDataProvider provider, CompareMode compareMode) {
+    public final int compareTo(Value v, Mode databaseMode, CompareMode compareMode) {
         if (this == v) {
             return 0;
         }
@@ -1479,11 +1423,11 @@ public abstract class Value extends VersionedValue {
                 l = l.convertToEnum(enumerators);
                 v = v.convertToEnum(enumerators);
             } else {
-                l = l.convertTo(dataType, provider, true);
-                v = v.convertTo(dataType, provider, true);
+                l = l.convertTo(dataType, databaseMode);
+                v = v.convertTo(dataType, databaseMode);
             }
         }
-        return l.compareTypeSafe(v, compareMode, provider);
+        return l.compareTypeSafe(v, compareMode);
     }
 
     /**
@@ -1492,14 +1436,13 @@ public abstract class Value extends VersionedValue {
      *
      * @param v the other value
      * @param forEquality perform only check for equality
-     * @param provider the cast information provider
+     * @param databaseMode the database mode
      * @param compareMode the compare mode
      * @return 0 if both values are equal, -1 if this value is smaller, 1
      *         if other value is larger, {@link Integer#MIN_VALUE} if order is
      *         not defined due to NULL comparison
      */
-    public int compareWithNull(Value v, boolean forEquality, CastDataProvider provider,
-            CompareMode compareMode) {
+    public int compareWithNull(Value v, boolean forEquality, Mode databaseMode, CompareMode compareMode) {
         if (this == ValueNull.INSTANCE || v == ValueNull.INSTANCE) {
             return Integer.MIN_VALUE;
         }
@@ -1513,11 +1456,11 @@ public abstract class Value extends VersionedValue {
                 l = l.convertToEnum(enumerators);
                 v = v.convertToEnum(enumerators);
             } else {
-                l = l.convertTo(dataType, provider, true);
-                v = v.convertTo(dataType, provider, true);
+                l = l.convertTo(dataType, databaseMode);
+                v = v.convertTo(dataType, databaseMode);
             }
         }
-        return l.compareTypeSafe(v, compareMode, provider);
+        return l.compareTypeSafe(v, compareMode);
     }
 
     /**
@@ -1547,10 +1490,11 @@ public abstract class Value extends VersionedValue {
      * a fixed precision are not truncated.
      *
      * @param precision the new precision
+     * @param force true if losing numeric precision is allowed
      * @return the new value
      */
     @SuppressWarnings("unused")
-    public Value convertPrecision(long precision) {
+    public Value convertPrecision(long precision, boolean force) {
         return this;
     }
 

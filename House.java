@@ -52,11 +52,16 @@ public class House implements Serializable {
     }
 
     public void checkValidity(String house) throws SQLException{
-        if (houseList.contains(house)){
+          System.out.println(Arrays.toString(houseList.toArray()));
+          house = house.replaceAll("[^a-zA-Z]","");
+            System.out.println(house);
+        if (houseList.contains(house.toString())){
+            this.housename=house;
             System.out.println("a new object created");;
         }
         else {
-            System.out.println("Throwing an exception");
+            
+            System.out.println("Invalid House Type : Throwing an exception");
             throw DbException.get(ErrorCode.INVALID_HOUSE_ERROR);
         }
 
