@@ -1,6 +1,8 @@
 package org.h2.value;
 
+import org.h2.api.ErrorCode;
 import org.h2.engine.CastDataProvider;
+import org.h2.message.DbException;
 import org.h2.util.JdbcUtils;
 import org.h2.util.StringUtils;
 
@@ -81,5 +83,25 @@ public class valueHouse extends Value {
         valueHouse vHouse = (valueHouse) o.getObject();
         return mode.compareString(this.house.toString(),vHouse.house.toString()
                 ,true);
+    }
+
+    @Override
+    public Value convertTo(int targetType, ExtTypeInfo extTypeInfo,
+                      CastDataProvider provider,
+                     boolean forComparison, Object column) {
+        if (Value.HOUSE == targetType) {
+            return this;
+        }
+        switch (targetType) {
+            case Value.BYTES:
+            case Value.JAVA_OBJECT: {
+                return ValueBytes.getNoCopy(JdbcUtils.serialize(house, null));
+            }
+            case Value.STRING: {
+                return ValueString.get(house.toString());
+            }
+        }
+        throw DbException.get(
+                ErrorCode.DATA_CONVERSION_ERROR_1, getString());
     }
 }
