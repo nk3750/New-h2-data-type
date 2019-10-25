@@ -77,12 +77,15 @@ public class valueHouse extends Value {
         return house.equals(v.house);
     }
 
-    @Override
+     @Override
     public int compareTypeSafe(Value o, CompareMode mode) {
-        valueHouse vHouse = (valueHouse) o.getObject();
-        return mode.compareString(this.house.toString(),vHouse.house.toString()
-                ,true);
+    System.out.println(o.toString() + " "+ house.toString());
+        if (o.toString().replaceAll("[^a-zA-Z]","").equals(house.toString())){
+            return 0;
+        }
+        return 1;
     }
+
 
     @Override
     public Value convertTo(int targetType, Mode mode, Object column, ExtTypeInfo extTypeInfo) {

@@ -48,12 +48,12 @@ public class CustomHouseDataType implements CustomDataTypesHandler {
     public Value convert(Value source, int targetType) {
         //System.out.println(source+Integer.toString(targetType));
         //System.out.println(source.getType().toString()+Integer.toString(targetType));
-        System.out.println(source.getType().getValueType()+Integer.toString(targetType));
+        //System.out.println(source.getType().getValueType()+Integer.toString(targetType));
         if (source.getType() == TypeInfo.getTypeInfo(targetType)){
             return source;
         }
        else if (targetType == Value.HOUSE){
-            System.out.println("coming inside");
+            //System.out.println("coming inside");
             if (source.getType() == TypeInfo.TYPE_JAVA_OBJECT){
                 return valueHouse.get((House) JdbcUtils.deserialize(source.getBytesNoCopy(), null));
             }
@@ -68,7 +68,7 @@ public class CustomHouseDataType implements CustomDataTypesHandler {
                     e.printStackTrace();
                 }
             }
-            else if (source.getType() == TypeInfo.TYPE_BYTE){
+            else if (source.getType().getValueType()  == 12){
                 return valueHouse.get((House) JdbcUtils.deserialize(source.getBytesNoCopy(), null));
             }
 
